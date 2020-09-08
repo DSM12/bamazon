@@ -18,6 +18,8 @@ var connection = mysql.createConnection({
 connection.connect(function (err) {
     if (err) throw err;
     console.log("connected as id " + connection.threadId);
+
+    showInventory();
 });
 
 function showInventory() {
@@ -25,12 +27,11 @@ function showInventory() {
         if (err) throw err;
 
         console.log();
-        console.log("------------ Welcome To BAMAZON ------------");
-        console.log("-------------------------------------------------------")
+        console.log("--------------------------------------- Welcome To BAMAZON ----------------------------------------------------");
+        console.log("--------------------------------------------------------------------------------------------------------------------")
         for (var i = 0; i < data.length; i++) {
             console.log("Item ID: " + data[i].item_id + " | " + "Product Name: " + data[i].product_name + " | " + "Department Name: " + data[i].department_name + " | " + "Price: " + data[i].price + " | " + "Stock Quantity: " + data[i].stock_quantity);
-            console.log("---------------------------------------------------");
-            console.log(showInventory);
+            console.log("---------------------------------------------------------------------------------------------------------------");
     }
     })
 };
