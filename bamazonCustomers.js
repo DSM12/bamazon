@@ -1,76 +1,130 @@
 var mysql = require("mysql");
 var inquirer = require("inquirer");
-
-var connection = mysql.createConnection({
-    host: "localhost",
-
-    // Your port; if not 3306
-    port: 3306,
-
-    // Your username
-    user: "root",
-
-    // Your password
-    password: "Paradise1",
-    database: "bamazon_db"
-});
+var connection = require("./constructors/keys.js");
 
 // MySQL connection function
 connection.connect(function (err) {
     if (err) throw err;
     console.log("connected as id " + connection.threadId);
-    // Should add welcome prompt asking customer whether they would like to buy or exit/just looking
-    showInventory();
+    // Should add welcome prompt asking customer whether they would like to buy or just looking
+    // showProducts();
+    readProducts();
+    buyItem();
 });
 
 // Function to show all items available in the bamazon database
-function showInventory() {
-    connection.query("SELECT * FROM Products", function (err, data) {
+function buyItem() {
+    connection.query("SELECT * FROM Products WHERE stock_quantity > 0", function (err, data) {
         if (err) throw err;
+        inquirer.prompt([
+            {
+                name: "choice",
+                type: "list",
+                message: "Please choose an option:",
+                choices: function () {
+                    var choiceArray = [];
+                    for (var i = 0; i < data.length; i++) {
+                        choiceArray.push(data[i].product_name);
+                    }
+                    return choiceArray;
+                },
+                message: "What item would you like to purchase?"
+            },
+            {
+                name: "quantity",
+                type: "input",
+                message: "How many would you like to purchase?",
+                validate: function (value) {
+                    if (isNaN(value) === false) {
+                        return true;
+                    }
+                    return false;
+                }
+            }
 
-        console.log();
-        console.log("--------------------------------------- Welcome To BAMAZON ----------------------------------------------------");
-        console.log("--------------------------------------------------------------------------------------------------------------------");
-        for (var i = 0; i < data.length; i++) {
-            console.log("Item ID: " + data[i].item_id + " | " + "Product Name: " + data[i].product_name + " | " + "Department Name: " + data[i].department_name + " | " + "Price: " + data[i].price + " | " + "Stock Quantity: " + data[i].stock_quantity);
-            console.log("---------------------------------------------------------------------------------------------------------------");
+        ]).then(function (answer) {
+            var selectedId;
+            for (var i = 0; i < data.length; i++) {
+                if (data[i].product_name === answer.choice) {
+                    selectedId = data[i];
+                }
+            }
+            if (selectedId.stock_quantity >= parseInt(answer.quantity)) {
+                var newQuantity = parseInt(selectedId.stock_quantity) - parseInt(answer.quantity);
+                var totalPrice = parseFloat(selectedId.price) * answer.quantity;
+                connection.query(
+                    "UPDATE products SET ? WHERE ?",
+                    [
+                        {
+                            stock_quantity: newQuantity
+                        },
+                        {
+                            item_id: selectedId.item_id
+                        }
+                    ],
+                    function (error) {
+                        if (error) throw error;
+                        console.log("Thanks for shopping! Your total is $" + totalPrice + ".\n");
+                        moreShopping();
+                    }
+                );
+            }
+            else {
+                console.log("I'm sorry, we only have " + selectedId.stock_quantity + " of those.\n");
+                moreShopping();
+            }
+        });
+    });
+}
+function moreShopping() {
+    inquirer
+        .prompt([
+            {
+                name: "again",
+                type: "confirm",
+                message: "Would you like to continue shopping?\n"
+            }
+        ])
+        .then(function (answer) {
+            if (answer.again) {
+                buyItem();
+            }
+            else {
+                console.log("Please come again soon!\n");
+                connection.end();
+            }
+        });
+}
+function readProducts() {
+    connection.query("SELECT * FROM products WHERE stock_quantity > 0", function (err, res) {
+        if (err) throw err;
+        console.log("-------------------------------- Welcome To BAMAZON ---------------------------");
+        console.log("-------------------------------------------------------------------------------");
+        console.log("|  # | PRODUCT                                  | DEPARTMENT       | PRICE    |");
+        console.log("-------------------------------------------------------------------------------");
+        for (let i = 0; i < res.length; i++) {
+            let item_id = res[i].item_id;
+            let product_name = res[i].product_name;
+            let department_name = res[i].department_name;
+            let price = "$" + res[i].price;
+            while (item_id.length < 2) {
+                item_id = " " + item_id;
+            }
+            while (product_name.length < 40) {
+                product_name = product_name + " ";
+            }
+            while (department_name.length < 16) {
+                department_name = department_name + " ";
+            }
+            while (price.length < 8) {
+                price = " " + price;
+            }
+            console.log("| " + item_id + " | " + product_name + " | " + department_name + " | " + price + " |");
         }
-
-        custyChoice();
-
-    })
-};
-
-// User prompts no particular order:
-function custyChoice() {
-    inquirer.prompt([
-        {
-            type: "list",
-            message: "Please choose an option:",
-            choices: ["Would you like to buy something?", "No thanks, just looking."],
-            name: "bye"
-        }
-    ]).then(function (answer) {
-        if (answer.bye === "No thanks, just looking.") {
-            connection.end();
-        } else {
-            selectedId();
-        }
-    })
-};
-
-
-function selectedId() {
-    inquirer.prompt([
-        {
-            type: "input",
-            message: "What would you like to buy?",
-            name: "id"
-        },
-        {
-            type: "input",
-            message: "How many units would you like to purchase?",
-            name: "howmany"
-        }
-    ])
+        console.log("-------------------------------------------------------------------------------\n");
+        
+        // buyItem();
+    });
+    
+    // buyItem();
 }
